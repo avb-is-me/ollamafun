@@ -1,15 +1,4 @@
 {
   "name": "Ollama Dev Environment",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "settings": {
-    "terminal.integrated.shell.linux": "/bin/bash"
-  },
-  "extensions": [
-    "ms-python.python",
-    "ms-vscode.cpptools"
-  ],
-  "forwardPorts": [11434],  // Make sure to expose Ollama's API port
-  "remoteUser": "root"
+  "postCreateCommand": "bash .devcontainer/postCreateCommand.sh"
 }
