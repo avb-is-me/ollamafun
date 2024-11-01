@@ -3,102 +3,122 @@
 # Install Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Create systemd service file for Ollama
-cat << EOF | sudo tee /etc/systemd/system/ollama.service
-[Unit]
-Description=Ollama Service
-After=network-online.target
-
-[Service]
-ExecStart=/usr/bin/ollama serve
-User=$USER
-Restart=always
-RestartSec=3
-Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-[Install]
-WantedBy=default.target
-EOF
-
-# Enable and start Ollama service
-sudo systemctl enable ollama
-sudo systemctl start ollama
-
-# Wait for Ollama service to fully start
-sleep 5
-
-# Pull the Phi model
+# Pull the Phi model first
 ollama pull phi
 
-# Create package.json
-cat << EOF > package.json
-{
-  "name": "ollama-phi-test",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "test_phi.js",
-  "dependencies": {
-    "node-fetch": "^3.3.0"
-  }
-}
+# Create a script to start the Ollama server
+cat << EOF > start-ollama-server.sh
+#!/bin/bash
+
+# Kill any existing Ollama processes
+pkill ollama
+
+# Start the Ollama server
+ollama serve
 EOF
 
-# Install dependencies
-npm install
+# Create a script to run the model
+cat << EOF > start-model.sh
+#!/bin/bash
 
-# Create a test script
-cat << EOF > test_phi.js
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { appendFile } from 'fs/promises';
-
-const execAsync = promisify(exec);
-
-async function queryPhi(prompt) {
-    try {
-        const { stdout } = await execAsync(\`ollama run phi "\${prompt}"\`);
-        return stdout.trim();
-    } catch (error) {
-        console.error('Error querying Phi:', error);
-        return null;
-    }
+# Function to check if Ollama server is running
+check_server() {
+    for i in {1..30}; do
+        if pgrep ollama > /dev/null; then
+            return 0
+        fi
+        echo "Waiting for Ollama server to start... ($i/30)"
+        sleep 1
+    done
+    return 1
 }
 
-async function main() {
-    const prompt = "Write a hello world program in JavaScript";
-    console.log(\`Sending prompt: \${prompt}\n\`);
-    
-    const response = await queryPhi(prompt);
-    console.log("Response:");
-    console.log(response);
+# Check if server is running
+if ! check_server; then
+    echo "Error: Ollama server did not start within 30 seconds"
+    exit 1
+fi
 
-    // Log the test
-    const timestamp = new Date().toISOString();
-    await appendFile('phi_test_log.txt', \`\n[\${timestamp}] Test completed successfully\`);
-}
+echo "Ollama server is running. Starting Phi model..."
 
-main().catch(console.error);
+# Start the model
+exec ollama run phi
+EOF
+
+# Create a combined startup script
+cat << EOF > start-all.sh
+#!/bin/bash
+
+# Start the Ollama server in the background
+./start-ollama-server.sh &
+
+# Wait a moment for the server to initialize
+sleep 5
+
+# Start the model in a new terminal if running in a GUI environment
+if [ -n "\$DISPLAY" ]; then
+    x-terminal-emulator -e "./start-model.sh" &
+else
+    # For non-GUI environments, provide instructions
+    echo "Ollama server is running in the background."
+    echo "To start using the model, open a new terminal and run:"
+    echo "./start-model.sh"
+fi
 EOF
 
 # Create a README
 cat << EOF > README.md
 # Ollama Phi Setup
 
-This environment has been configured with Ollama and the Microsoft Phi model.
+This environment has been configured with Ollama and the Phi model.
 
 ## Usage
 
-1. The Ollama service should be running automatically
-2. You can test the setup by running: \`node test_phi.js\`
-3. To use Phi directly from command line: \`ollama run phi "your prompt here"\`
+You have three options to start the system:
+
+1. Start everything at once:
+   \`\`\`bash
+   ./start-all.sh
+   \`\`\`
+
+2. Start components separately:
+   
+   In first terminal:
+   \`\`\`bash
+   ./start-ollama-server.sh
+   \`\`\`
+   
+   In second terminal:
+   \`\`\`bash
+   ./start-model.sh
+   \`\`\`
+
+3. Run commands directly:
+   
+   In first terminal:
+   \`\`\`bash
+   ollama serve
+   \`\`\`
+   
+   In second terminal:
+   \`\`\`bash
+   ollama run phi
+   \`\`\`
 
 ## Troubleshooting
 
-If Ollama isn't responding:
-1. Check service status: \`sudo systemctl status ollama\`
-2. Restart service: \`sudo systemctl restart ollama\`
-3. Check logs: \`journalctl -u ollama\`
+If you encounter issues:
+1. Check if Ollama is running: \`pgrep ollama\`
+2. Kill existing Ollama processes: \`pkill ollama\`
+3. Restart the server: \`./start-ollama-server.sh\`
+4. Try running the model again: \`./start-model.sh\`
 EOF
 
-echo "Setup complete! You can now use the Phi model through Ollama."
-echo "Try running: node test_phi.js"
+# Make all scripts executable
+chmod +x start-ollama-server.sh start-model.sh start-all.sh
+
+echo "Setup complete! You can now start Ollama and the Phi model."
+echo "To start everything at once, run: ./start-all.sh"
+echo "Or start components separately:"
+echo "1. In one terminal: ./start-ollama-server.sh"
+echo "2. In another terminal: ./start-model.sh"
