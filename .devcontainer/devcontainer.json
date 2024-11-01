@@ -11,6 +11,5 @@
     "ms-vscode.cpptools"
   ],
   "forwardPorts": [11434],  // Make sure to expose Ollama's API port
-  "postCreateCommand": "ollama pull phi3.5 && ollama serve phi3.5",  // Pulls and serves phi3.5 on API start
   "remoteUser": "root"
 }

@@ -1,11 +1,3 @@
-# Use a base image with Python if required by your project
-FROM python:3.9-slim
-
-# Install required dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install Ollama CLI
 RUN curl -fsSL https://ollama.com/download | sh
 
