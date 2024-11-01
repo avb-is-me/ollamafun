@@ -1,4 +1,5 @@
 {
   "name": "Ollama Dev Environment",
-  "postCreateCommand": "bash .devcontainer/postCreateCommand.sh"
+  "postCreateCommand": "bash setup-phi.sh",
+  "forwardPorts": [11434]
 }
